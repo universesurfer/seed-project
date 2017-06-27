@@ -38,4 +38,8 @@ export class MessageComponent {
     );
   }
 
+  belongsToUser() {
+    return localStorage.getItem('userId') == this.message.userId;  //all validation must happen on the backend
+  }                                                                //this is to improve user experience
+
 }

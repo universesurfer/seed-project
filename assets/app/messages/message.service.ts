@@ -3,13 +3,14 @@ import { Injectable, EventEmitter } from '@angular/core';
 import { Http, Response, Headers} from '@angular/http';
 import 'rxjs/Rx';  //observable third party library that enables .map()
 import { Observable } from 'rxjs/Rx';
+import { ErrorService } from '../errors/error.service';
 
 @Injectable()    //@Injectable adds metadata to our class so we can use our service (which requires it)
 export class MessageService {
   private messages: Message[] = [];
   messageIsEdit = new EventEmitter<Message>();
 
-  constructor(private http: Http){}
+  constructor(private http: Http, private errorService: ErrorService){}
 
   addMessage(message: Message) {
     const body = JSON.stringify(message);
@@ -20,12 +21,19 @@ export class MessageService {
     return this.http.post('http://localhost:3000/message' + token, body, { headers: headers })
         .map((response: Response) => {
           const result = response.json();                 //in .map(), response automatically converted to Observable
-          const message = new Message(result.obj.content, 'Dummy', result.obj._id, null);
+          const message = new Message(
+            result.obj.content,
+            result.obj.user.firstName,
+            result.obj._id,
+            result.obj.user._id);
           this.messages.push(message);
           return message;
   })
-        .catch((error: Response) => Observable.throw(error.json()));   //in .catch(), it isn't, so we use Observable instead of response
-      };
+        .catch((error: Response) => {
+          this.errorService.handleError(error.json());
+          return Observable.throw(error.json());   //in .catch(), it isn't, so we use Observable instead of response
+      });
+  }
 
   getMessages() {
     return this.http.get('http://localhost:3000/message')
@@ -33,12 +41,19 @@ export class MessageService {
           const messages = response.json().obj;    //.obj is the field we set up in the node function
           let transformedMessages: Message[] = [];
           for (let message of messages) {
-            transformedMessages.push(new Message(message.content, 'Dummy', message._id, null));
+            transformedMessages.push(new Message(
+              message.content,
+              message.user.firstName,
+              message._id,
+              message.user._id));
           }
           this.messages = transformedMessages;
           return transformedMessages;
         })
-      .catch((error: Response) => Observable.throw(error.json()));
+        .catch((error: Response) => {
+          this.errorService.handleError(error.json());
+          return Observable.throw(error.json());
+      });
   }
 
   //EDIT MESSAGE
@@ -54,7 +69,10 @@ export class MessageService {
     : '';
     return this.http.patch('http://localhost:3000/message/' + message.messageId + token, body, { headers: headers })
       .map((response: Response) => response.json())
-      .catch((error: Response) => Observable.throw(error.json()))
+      .catch((error: Response) => {
+        this.errorService.handleError(error.json());
+        return Observable.throw(error.json());
+    });
   }
 
 
@@ -65,6 +83,9 @@ export class MessageService {
     : '';
     return this.http.delete('http://localhost:3000/message/' + message.messageId + token)   //removes from backend
       .map((response: Response) => response.json())
-      .catch((error: Response) => Observable.throw(error.json()));
+      .catch((error: Response) => {
+        this.errorService.handleError(error.json());
+        return Observable.throw(error.json());
+    });
   }
 }

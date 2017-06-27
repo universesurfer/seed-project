@@ -7,6 +7,7 @@ var User = require('../models/user');
 
 router.get('/', function (req, res, next) {
     Message.find()
+    .populate('user', 'firstName')  //Mongoose method that is calling User object (from the ref inside Message model) - getting the id and the firstName of the user model
     .exec(function(err, result) {
       if (err) {
         return res.status(500).json({
@@ -45,7 +46,7 @@ router.post('/', function (req, res, next) {
                 error: err
             });
         }
-        var message = new Message({
+        var message = new Message({              //don't need to use populate here, as we already have access to full user object
             content: req.body.content,
             user: user
         });
@@ -59,7 +60,7 @@ router.post('/', function (req, res, next) {
             user.messages.push(result);
             user.save();
             res.status(201).json({
-                message: 'Saved message',
+                message: 'Saved message',       //in the message.service, we can use result.obj.user etc to access our full user object
                 obj: result
             });
         });
@@ -69,6 +70,7 @@ router.post('/', function (req, res, next) {
 
 
 router.patch('/:id', function (req, res, next) {
+  var decoded = jwt.decode(req.query.token);
   Message.findById(req.params.id, function(err, message) {
     if (err) {
       return res.status(500).json({
@@ -80,6 +82,12 @@ router.patch('/:id', function (req, res, next) {
       return res.status(500).json({
         title: "No Message Found!",
         error: {message: 'Message not found'}
+      });
+    }
+    if (message.user != decoded.user._id) {    //Making sure unauthenticated users cannot delete other users' messages
+      return res.status(401).json({
+        title: 'Not authenticated',
+        error: {Message: 'Users do not match'}
       });
     }
     message.content = req.body.content;
@@ -99,6 +107,7 @@ router.patch('/:id', function (req, res, next) {
 });
 
 router.delete('/:id', function (req, res, next) {
+  var decoded = jwt.decode(req.query.token);
   Message.findById(req.params.id, function(err, message) {
     if (err) {
       return res.status(500).json({
@@ -110,6 +119,12 @@ router.delete('/:id', function (req, res, next) {
       return res.status(500).json({
         title: "No Message Found!",
         error: {message: 'Message not found'}
+      });
+    }
+    if (message.user != decoded.user._id) {
+      return res.status(401).json({
+        title: 'Not authenticated',
+        error: {Message: 'Users do not match'}
       });
     }
       message.remove(function(err, result) {
